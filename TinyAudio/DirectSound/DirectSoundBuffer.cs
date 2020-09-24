@@ -1,4 +1,5 @@
 ﻿using System;
+using TinyAudio.DirectSound.Interop;
 
 namespace TinyAudio.DirectSound
 {

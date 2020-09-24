@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Threading;
 using TinyAudio.DirectSound;
+using TinyAudio.DirectSound.Interop;
 
 namespace TinyAudio
 {

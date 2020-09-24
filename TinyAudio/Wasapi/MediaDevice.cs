@@ -1,4 +1,5 @@
 ﻿using System;
+using TinyAudio.Wasapi.Interop;
 
 namespace TinyAudio.Wasapi
 {

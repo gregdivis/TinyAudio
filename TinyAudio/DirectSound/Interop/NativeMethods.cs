@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace TinyAudio.DirectSound
+namespace TinyAudio.DirectSound.Interop
 {
     internal static class NativeMethods
     {

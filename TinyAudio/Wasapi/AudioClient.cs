@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
-using System.Threading;
+using TinyAudio.Wasapi.Interop;
 
 namespace TinyAudio.Wasapi
 {

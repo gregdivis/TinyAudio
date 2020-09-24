@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace TinyAudio.Wasapi
+namespace TinyAudio.Wasapi.Interop
 {
     internal static class Guids
     {
