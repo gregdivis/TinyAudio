@@ -50,7 +50,7 @@ namespace TinyAudio
             this.pcm8Callback = null;
             this.float32Callback = null;
             this.Playing = true;
-            this.Start();
+            this.Start(true);
         }
         /// <summary>
         /// Begins playback of the background stream of 326-bit IEEE floating point data.
@@ -70,7 +70,7 @@ namespace TinyAudio
             this.pcm16Callback = null;
             this.pcm8Callback = null;
             this.Playing = true;
-            this.Start();
+            this.Start(true);
         }
         /// <summary>
         /// Begins playback of the background stream of 8-bit PCM data.
@@ -90,7 +90,25 @@ namespace TinyAudio
             this.pcm16Callback = null;
             this.float32Callback = null;
             this.Playing = true;
-            this.Start();
+            this.Start(true);
+        }
+        /// <summary>
+        /// Begins playback of the background stream.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The stream is already playing.</exception>
+        /// <exception cref="ObjectDisposedException">The <see cref="AudioPlayer"/> instance has been disposed.</exception>
+        public void BeginPlayback()
+        {
+            if (this.disposed)
+                throw new ObjectDisposedException(nameof(AudioPlayer));
+            if (this.Playing)
+                throw new InvalidOperationException("Playback has already started.");
+
+            this.pcm8Callback = null;
+            this.pcm16Callback = null;
+            this.float32Callback = null;
+            this.Playing = true;
+            this.Start(false);
         }
         /// <summary>
         /// Stops audio playback if it is currently playing.
@@ -110,6 +128,53 @@ namespace TinyAudio
             }
         }
 
+        public uint WriteData(ReadOnlySpan<float> data)
+        {
+            var format = this.Format.SampleFormat;
+
+            if (format == SampleFormat.IeeeFloat32)
+            {
+                return this.WriteDataInternal(MemoryMarshal.Cast<float, byte>(data)) / 4u;
+            }
+            else if (format == SampleFormat.SignedPcm16)
+            {
+                int minBufferSize = data.Length * 2;
+                if (this.conversionBuffer == null || this.conversionBuffer.Length < minBufferSize)
+                    Array.Resize(ref this.conversionBuffer, minBufferSize);
+
+                var tempSpan = MemoryMarshal.Cast<byte, short>(this.conversionBuffer.AsSpan(0, minBufferSize));
+                SampleConverter.FloatToPcm16(data, tempSpan);
+                return this.WriteDataInternal(this.conversionBuffer.AsSpan(0, tempSpan.Length * 2)) / 2u;
+            }
+            else
+            {
+                throw new NotSupportedException();
+            }
+        }
+        public uint WriteData(ReadOnlySpan<short> data)
+        {
+            var format = this.Format.SampleFormat;
+
+            if (format == SampleFormat.SignedPcm16)
+            {
+                return this.WriteDataInternal(MemoryMarshal.Cast<short, byte>(data)) / 2u;
+            }
+            else if (format == SampleFormat.IeeeFloat32)
+            {
+                int minBufferSize = data.Length * 4;
+                if (this.conversionBuffer == null || this.conversionBuffer.Length < minBufferSize)
+                    Array.Resize(ref this.conversionBuffer, minBufferSize);
+
+                var tempSpan = MemoryMarshal.Cast<byte, float>(this.conversionBuffer.AsSpan(0, minBufferSize));
+                SampleConverter.Pcm16ToFloat(data, tempSpan);
+                return this.WriteDataInternal(this.conversionBuffer.AsSpan(0, tempSpan.Length * 4)) / 4u;
+            }
+            else
+            {
+                throw new NotSupportedException();
+            }
+        }
+
         public void Dispose()
         {
             this.Dispose(true);
@@ -120,8 +185,9 @@ namespace TinyAudio
         {
             this.disposed = true;
         }
-        protected abstract void Start();
+        protected abstract void Start(bool useCallback);
         protected abstract void Stop();
+
         protected void RaiseCallback(Span<byte> buffer, out uint samplesWritten)
         {
             if (this.pcm8Callback != null)
@@ -200,6 +266,7 @@ namespace TinyAudio
 
             throw new NotSupportedException();
         }
+        protected abstract uint WriteDataInternal(ReadOnlySpan<byte> data);
     }
 
     /// <summary>

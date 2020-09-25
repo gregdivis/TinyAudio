@@ -124,7 +124,7 @@ namespace TinyAudio
                 var srcVector = MemoryMarshal.Cast<float, Vector<float>>(source);
                 var destVector = MemoryMarshal.Cast<short, Vector<short>>(target);
 
-                for (int i = 0; i < srcVector.Length; i += 2)
+                for (int i = 0; i < srcVector.Length - 1; i += 2)
                 {
                     int targetIndex = i / 2;
 

@@ -76,7 +76,7 @@ namespace TinyAudio.Wasapi
             }
         }
 
-        public void Initialize(TimeSpan bufferDuration, AudioFormat? audioFormat = null)
+        public void Initialize(TimeSpan bufferDuration, AudioFormat? audioFormat = null, bool useCallback = false)
         {
             if (this.disposed)
                 throw new ObjectDisposedException(nameof(AudioClient));
@@ -87,7 +87,7 @@ namespace TinyAudio.Wasapi
                     throw new ArgumentException();
 
                 var sessionId = SessionGuid;
-                uint res = this.inst->Vtbl->Initialize(this.inst, 0, AUDCLNT_STREAMFLAGS_EVENTCALLBACK, bufferDuration.Ticks, 0, (WAVEFORMATEX*)&wfx, &sessionId);
+                uint res = this.inst->Vtbl->Initialize(this.inst, 0, useCallback ? AUDCLNT_STREAMFLAGS_EVENTCALLBACK : 0, bufferDuration.Ticks, 0, (WAVEFORMATEX*)&wfx, &sessionId);
                 if (res != 0)
                     throw new InvalidOperationException();
 
@@ -173,7 +173,7 @@ namespace TinyAudio.Wasapi
                     return false;
                 }
 
-                buffer = new(ptr, (int)(framesRequested * this.MixFormat.Channels));
+                buffer = new(ptr, (int)(framesRequested * this.MixFormat.BytesPerFrame / sizeof(TSample)));
                 return true;
             }
         }

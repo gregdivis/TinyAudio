@@ -32,14 +32,19 @@ namespace TinyAudio
             this.directSoundBuffer = dsound.CreateBuffer(format, bufferLength);
         }
 
-        protected override void Start()
+        protected override void Start(bool useCallback)
         {
-            uint maxBytes = this.directSoundBuffer.GetFreeBytes();
-            if (maxBytes >= 32)
-                this.WriteBuffer(maxBytes);
+            if (useCallback)
+            {
+                uint maxBytes = this.directSoundBuffer.GetFreeBytes();
+                if (maxBytes >= 32)
+                    this.WriteBuffer(maxBytes);
+            }
 
             this.directSoundBuffer.Play(PlaybackMode.LoopContinuously);
-            this.bufferTimer = new Timer(_ => this.PollingThread(), null, 0, this.dataInterval);
+
+            if (useCallback)
+                this.bufferTimer = new Timer(_ => this.PollingThread(), null, 0, this.dataInterval);
         }
         protected override void Stop()
         {
@@ -126,6 +131,40 @@ namespace TinyAudio
                     this.directSoundBuffer.Unlock(buffer.Ptr1, ptr1Written, buffer.Ptr2, ptr2Written);
                 }
             }
+        }
+
+        protected override uint WriteDataInternal(ReadOnlySpan<byte> data)
+        {
+            var buffer = this.directSoundBuffer.Acquire(32);
+            if (buffer.Valid)
+            {
+                uint ptr1Written = 0;
+                uint ptr2Written = 0;
+                try
+                {
+                    var span1 = buffer.GetSpan1<byte>();
+                    var src = data.Slice(0, Math.Min(span1.Length, data.Length));
+                    src.CopyTo(span1);
+                    ptr1Written = (uint)src.Length;
+
+                    src = data[src.Length..];
+                    if (!src.IsEmpty && buffer.Split)
+                    {
+                        var span2 = buffer.GetSpan2<byte>();
+                        var src2 = src.Slice(0, Math.Min(src.Length, span2.Length));
+                        src2.CopyTo(span2);
+                        ptr2Written = (uint)span2.Length;
+                    }
+                }
+                finally
+                {
+                    this.directSoundBuffer.Unlock(buffer.Ptr1, ptr1Written, buffer.Ptr2, ptr2Written);
+                }
+
+                return ptr1Written + ptr2Written;
+            }
+
+            return 0;
         }
     }
 }

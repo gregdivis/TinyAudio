@@ -17,12 +17,12 @@ namespace TinyAudio
             this.audioClient = audioClient;
         }
 
-        public static WasapiAudioPlayer Create(TimeSpan bufferLength)
+        public static WasapiAudioPlayer Create(TimeSpan bufferLength, bool useCallback = false)
         {
             var client = MediaDevice.Default.CreateAudioClient();
             try
             {
-                client.Initialize(bufferLength);
+                client.Initialize(bufferLength, useCallback: useCallback);
                 return new WasapiAudioPlayer(client);
             }
             catch
@@ -32,10 +32,14 @@ namespace TinyAudio
             }
         }
 
-        protected override void Start()
+        protected override void Start(bool useCallback)
         {
-            this.audioClient.SetEventHandle(this.bufferReady.SafeWaitHandle);
-            this.callbackWaitHandle = ThreadPool.UnsafeRegisterWaitForSingleObject(this.bufferReady, this.HandleBufferReady, null, -1, false);
+            if (useCallback)
+            {
+                this.audioClient.SetEventHandle(this.bufferReady.SafeWaitHandle);
+                this.callbackWaitHandle = ThreadPool.UnsafeRegisterWaitForSingleObject(this.bufferReady, this.HandleBufferReady, null, -1, false);
+            }
+
             this.audioClient.Start();
         }
         protected override void Stop()
@@ -43,6 +47,32 @@ namespace TinyAudio
             this.audioClient.Stop();
             this.callbackWaitHandle?.Unregister(this.bufferReady);
             this.callbackWaitHandle = null;
+        }
+
+        protected override uint WriteDataInternal(ReadOnlySpan<byte> data)
+        {
+            uint written = 0;
+            uint maxFrames = this.audioClient.GetBufferSize() - this.audioClient.GetCurrentPadding();
+            if (maxFrames > 0)
+            {
+                bool release = this.audioClient.TryGetBuffer<byte>(maxFrames, out var buffer);
+                try
+                {
+                    if (release)
+                    {
+                        int len = Math.Min(data.Length, buffer.Length);
+                        data.Slice(0, len).CopyTo(buffer);
+                        written = (uint)len;
+                    }
+                }
+                finally
+                {
+                    if (release)
+                        this.audioClient.ReleaseBuffer(written / this.audioClient.MixFormat.BytesPerFrame);
+                }
+            }
+
+            return written;
         }
 
         protected override void Dispose(bool disposing)

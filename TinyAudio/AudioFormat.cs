@@ -15,5 +15,9 @@
             SampleFormat.IeeeFloat32 => 4,
             _ => 0
         };
+        /// <summary>
+        /// Gets the number of bytes per frame of the format.
+        /// </summary>
+        public uint BytesPerFrame => this.BytesPerSample * this.Channels;
     }
 }
