@@ -174,6 +174,39 @@ namespace TinyAudio
                 throw new NotSupportedException();
             }
         }
+        public uint WriteData(ReadOnlySpan<byte> data)
+        {
+            var format = this.Format.SampleFormat;
+
+            if (format == SampleFormat.UnsignedPcm8)
+            {
+                return this.WriteDataInternal(data);
+            }
+            else if (format == SampleFormat.SignedPcm16)
+            {
+                int minBufferSize = data.Length * 2;
+                if (this.conversionBuffer == null || this.conversionBuffer.Length < minBufferSize)
+                    Array.Resize(ref this.conversionBuffer, minBufferSize);
+
+                var tempSpan = MemoryMarshal.Cast<byte, short>(this.conversionBuffer.AsSpan(0, minBufferSize));
+                SampleConverter.Pcm8ToPcm16(data, tempSpan);
+                return this.WriteDataInternal(this.conversionBuffer.AsSpan(0, tempSpan.Length * 2)) / 2u;
+            }
+            else if (format == SampleFormat.IeeeFloat32)
+            {
+                int minBufferSize = data.Length * 4;
+                if (this.conversionBuffer == null || this.conversionBuffer.Length < minBufferSize)
+                    Array.Resize(ref this.conversionBuffer, minBufferSize);
+
+                var tempSpan = MemoryMarshal.Cast<byte, float>(this.conversionBuffer.AsSpan(0, minBufferSize));
+                SampleConverter.Pcm8ToFloat(data, tempSpan);
+                return this.WriteDataInternal(this.conversionBuffer.AsSpan(0, tempSpan.Length * 4)) / 4u;
+            }
+            else
+            {
+                throw new NotSupportedException();
+            }
+        }
 
         public void Dispose()
         {

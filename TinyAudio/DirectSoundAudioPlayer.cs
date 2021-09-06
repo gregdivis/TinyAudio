@@ -153,7 +153,7 @@ namespace TinyAudio
                         var span2 = buffer.GetSpan2<byte>();
                         var src2 = src.Slice(0, Math.Min(src.Length, span2.Length));
                         src2.CopyTo(span2);
-                        ptr2Written = (uint)span2.Length;
+                        ptr2Written = (uint)src2.Length;
                     }
                 }
                 finally
