@@ -229,7 +229,7 @@ namespace TinyAudio.Wasapi
                 }
                 else if (format.SampleFormat == SampleFormat.UnsignedPcm8 || format.SampleFormat == SampleFormat.SignedPcm16)
                 {
-                    ushort bitsPerSample = format.SampleFormat == SampleFormat.SignedPcm16 ? 16 : 8;
+                    ushort bitsPerSample = format.SampleFormat == SampleFormat.SignedPcm16 ? (ushort)16 : (ushort)8;
 
                     wfx = new WAVEFORMATEXTENSIBLE
                     {
