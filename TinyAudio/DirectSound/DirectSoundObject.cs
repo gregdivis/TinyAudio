@@ -12,7 +12,7 @@ namespace TinyAudio.DirectSound
         private readonly unsafe DirectSound8Inst* directSound;
 
         private static WeakReference? instance;
-        private static readonly object getInstanceLock = new object();
+        private static readonly object getInstanceLock = new();
 
         private const uint bufferFlags = 0x00000008u | 0x00000020u | 0x00000080u | 0x00008000u;
 
@@ -63,7 +63,7 @@ namespace TinyAudio.DirectSound
                     nChannels = (ushort)format.Channels,
                     wBitsPerSample = (ushort)(format.BytesPerSample * 8u),
                     wFormatTag = 1,
-                    nSamplesPerSec = format.SampleRate
+                    nSamplesPerSec = (uint)format.SampleRate
                 };
 
                 wfx.nBlockAlign = (ushort)(wfx.nChannels * (wfx.wBitsPerSample / 8u));

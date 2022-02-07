@@ -90,8 +90,8 @@ namespace TinyAudio
             var buffer = this.directSoundBuffer.Acquire(maxBytes);
             if (buffer.Valid)
             {
-                uint ptr1Written = 0;
-                uint ptr2Written = 0;
+                int ptr1Written = 0;
+                int ptr2Written = 0;
                 var format = this.Format.SampleFormat;
 
                 try
@@ -133,19 +133,19 @@ namespace TinyAudio
             }
         }
 
-        protected override uint WriteDataInternal(ReadOnlySpan<byte> data)
+        protected override int WriteDataInternal(ReadOnlySpan<byte> data)
         {
             var buffer = this.directSoundBuffer.Acquire(32);
             if (buffer.Valid)
             {
-                uint ptr1Written = 0;
-                uint ptr2Written = 0;
+                int ptr1Written = 0;
+                int ptr2Written = 0;
                 try
                 {
                     var span1 = buffer.GetSpan1<byte>();
-                    var src = data.Slice(0, Math.Min(span1.Length, data.Length));
+                    var src = data[..Math.Min(span1.Length, data.Length)];
                     src.CopyTo(span1);
-                    ptr1Written = (uint)src.Length;
+                    ptr1Written = src.Length;
 
                     src = data[src.Length..];
                     if (!src.IsEmpty && buffer.Split)
@@ -153,7 +153,7 @@ namespace TinyAudio
                         var span2 = buffer.GetSpan2<byte>();
                         var src2 = src.Slice(0, Math.Min(src.Length, span2.Length));
                         src2.CopyTo(span2);
-                        ptr2Written = (uint)src2.Length;
+                        ptr2Written = src2.Length;
                     }
                 }
                 finally

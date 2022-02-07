@@ -49,9 +49,9 @@ namespace TinyAudio
             this.callbackWaitHandle = null;
         }
 
-        protected override uint WriteDataInternal(ReadOnlySpan<byte> data)
+        protected override int WriteDataInternal(ReadOnlySpan<byte> data)
         {
-            uint written = 0;
+            int written = 0;
             uint maxFrames = this.audioClient.GetBufferSize() - this.audioClient.GetCurrentPadding();
             if (maxFrames > 0)
             {
@@ -62,13 +62,13 @@ namespace TinyAudio
                     {
                         int len = Math.Min(data.Length, buffer.Length);
                         data[..len].CopyTo(buffer);
-                        written = (uint)len;
+                        written = len;
                     }
                 }
                 finally
                 {
                     if (release)
-                        this.audioClient.ReleaseBuffer(written / this.audioClient.MixFormat.BytesPerFrame);
+                        this.audioClient.ReleaseBuffer((uint)written / (uint)this.audioClient.MixFormat.BytesPerFrame);
                 }
             }
 
@@ -97,7 +97,7 @@ namespace TinyAudio
                 uint maxFrames = this.audioClient.GetBufferSize() - this.audioClient.GetCurrentPadding();
                 if (maxFrames > 0)
                 {
-                    uint written = 0;
+                    int written = 0;
                     bool release = false;
                     try
                     {
@@ -126,7 +126,7 @@ namespace TinyAudio
                     finally
                     {
                         if (release)
-                            this.audioClient.ReleaseBuffer(written / this.audioClient.MixFormat.Channels);
+                            this.audioClient.ReleaseBuffer((uint)written / (uint)this.audioClient.MixFormat.Channels);
                     }
                 }
 

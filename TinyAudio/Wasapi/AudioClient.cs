@@ -216,8 +216,8 @@ namespace TinyAudio.Wasapi
                             wBitsPerSample = 32,
                             nChannels = (ushort)format.Channels,
                             nBlockAlign = (ushort)(format.Channels * 4u),
-                            nSamplesPerSec = format.SampleRate,
-                            nAvgBytesPerSec = format.Channels * 4u * format.SampleRate,
+                            nSamplesPerSec = (uint)format.SampleRate,
+                            nAvgBytesPerSec = (uint)format.Channels * 4u * (uint)format.SampleRate,
                             wFormatTag = WAVE_FORMAT_EXTENSIBLE
                         },
                         wValidBitsPerSample = 32,
@@ -239,8 +239,8 @@ namespace TinyAudio.Wasapi
                             wBitsPerSample = bitsPerSample,
                             nChannels = (ushort)format.Channels,
                             nBlockAlign = (ushort)(format.Channels * (bitsPerSample / 8u)),
-                            nSamplesPerSec = format.SampleRate,
-                            nAvgBytesPerSec = format.Channels * (bitsPerSample / 8u) * format.SampleRate,
+                            nSamplesPerSec = (uint)format.SampleRate,
+                            nAvgBytesPerSec = (uint)format.Channels * (bitsPerSample / 8u) * (uint)format.SampleRate,
                             wFormatTag = WAVE_FORMAT_PCM
                         }
                     };
@@ -295,7 +295,7 @@ namespace TinyAudio.Wasapi
                 return null;
             }
 
-            return new(wfx->nSamplesPerSec, wfx->nChannels, sampleFormat);
+            return new((int)wfx->nSamplesPerSec, wfx->nChannels, sampleFormat);
         }
 
         public void Dispose()

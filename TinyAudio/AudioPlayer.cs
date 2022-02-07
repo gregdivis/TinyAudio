@@ -93,6 +93,7 @@ namespace TinyAudio
             if (this.Playing)
             {
                 this.Stop();
+                this.Playing = false;
                 this.callbackRaiser = null;
             }
         }
@@ -102,19 +103,19 @@ namespace TinyAudio
         /// </summary>
         /// <param name="data">Buffer containing data to write.</param>
         /// <returns>Number of samples actually written to the buffer.</returns>
-        public uint WriteData(ReadOnlySpan<float> data) => this.writer.WriteData(data);
+        public int WriteData(ReadOnlySpan<float> data) => this.writer.WriteData(data);
         /// <summary>
         /// Writes 16-bit PCM data to the output buffer.
         /// </summary>
         /// <param name="data">Buffer containing data to write.</param>
         /// <returns>Number of samples actually written to the buffer.</returns>
-        public uint WriteData(ReadOnlySpan<short> data) => this.writer.WriteData(data);
+        public int WriteData(ReadOnlySpan<short> data) => this.writer.WriteData(data);
         /// <summary>
         /// Writes 8-bit PCM data to the output buffer.
         /// </summary>
         /// <param name="data">Buffer containing data to write.</param>
         /// <returns>Number of samples actually written to the buffer.</returns>
-        public uint WriteData(ReadOnlySpan<byte> data) => this.writer.WriteData(data);
+        public int WriteData(ReadOnlySpan<byte> data) => this.writer.WriteData(data);
 
         /// <summary>
         /// Writes 32-bit IEEE floating point data to the output buffer and blocks until all data has been written.
@@ -134,6 +135,21 @@ namespace TinyAudio
         /// <param name="data">Buffer containing data to write.</param>
         /// <param name="cancellationToken">Token used to cancel asynchronous operation.</param>
         public ValueTask WriteDataAsync(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default) => this.writer.WriteDataAsync(data, cancellationToken);
+        /// <summary>
+        /// Writes sample data of the type <typeparamref name="TSample"/> to the output buffer and blocks until all data has been written.
+        /// </summary>
+        /// <typeparam name="TSample">Sample format.</typeparam>
+        /// <param name="data">Buffer containing data to write.</param>
+        /// <param name="cancellationToken">Token used to cancel asynchronous operation.</param>
+        /// <remarks>
+        /// <typeparamref name="TSample"/> can be one of the following:
+        /// <list type="bullet">
+        /// <item><see cref="byte"/>: 8-bit PCM</item>
+        /// <item><see cref="short"/>: 16-bit PCM</item>
+        /// <item><see cref="float"/>: 32-bit IEEE float</item>
+        /// </list>
+        /// </remarks>
+        public ValueTask WriteDataRawAsync<TSample>(ReadOnlyMemory<byte> data, CancellationToken cancellationToken = default) where TSample : unmanaged => this.writer.WriteDataRawAsync<TSample>(data, cancellationToken);
 
         public void Dispose()
         {
@@ -147,13 +163,13 @@ namespace TinyAudio
         }
         protected abstract void Start(bool useCallback);
         protected abstract void Stop();
-        protected abstract uint WriteDataInternal(ReadOnlySpan<byte> data);
+        protected abstract int WriteDataInternal(ReadOnlySpan<byte> data);
 
-        protected void RaiseCallback(Span<byte> buffer, out uint samplesWritten) => this.RaiseCallbackInternal(buffer, out samplesWritten);
-        protected void RaiseCallback(Span<short> buffer, out uint samplesWritten) => this.RaiseCallbackInternal(buffer, out samplesWritten);
-        protected void RaiseCallback(Span<float> buffer, out uint samplesWritten) => this.RaiseCallbackInternal(buffer, out samplesWritten);
+        protected void RaiseCallback(Span<byte> buffer, out int samplesWritten) => this.RaiseCallbackInternal(buffer, out samplesWritten);
+        protected void RaiseCallback(Span<short> buffer, out int samplesWritten) => this.RaiseCallbackInternal(buffer, out samplesWritten);
+        protected void RaiseCallback(Span<float> buffer, out int samplesWritten) => this.RaiseCallbackInternal(buffer, out samplesWritten);
 
-        private void RaiseCallbackInternal<TInput>(Span<TInput> buffer, out uint samplesWritten) where TInput : unmanaged
+        private void RaiseCallbackInternal<TInput>(Span<TInput> buffer, out int samplesWritten) where TInput : unmanaged
         {
             if (this.callbackRaiser != null)
                 this.callbackRaiser.RaiseCallback(MemoryMarshal.AsBytes(buffer), out samplesWritten);
@@ -188,7 +204,21 @@ namespace TinyAudio
 
             while (true)
             {
-                bytesWritten += (int)this.WriteDataInternal(MemoryMarshal.Cast<T, byte>(data.Span)[bytesWritten..]);
+                bytesWritten += this.WriteDataInternal(MemoryMarshal.Cast<T, byte>(data.Span)[bytesWritten..]);
+                if (bytesWritten >= byteLength)
+                    return;
+
+                await Task.Delay(5, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        private async ValueTask WriteDataRawInternalAsync<T>(ReadOnlyMemory<byte> data, CancellationToken cancellationToken) where T : unmanaged
+        {
+            int bytesWritten = 0;
+            int byteLength = Unsafe.SizeOf<T>() * data.Length;
+
+            while (true)
+            {
+                bytesWritten += this.WriteDataInternal(data.Span[bytesWritten..]);
                 if (bytesWritten >= byteLength)
                     return;
 
@@ -202,8 +232,9 @@ namespace TinyAudio
             {
             }
 
-            public abstract uint WriteData<TInput>(ReadOnlySpan<TInput> data) where TInput : unmanaged;
+            public abstract int WriteData<TInput>(ReadOnlySpan<TInput> data) where TInput : unmanaged;
             public abstract ValueTask WriteDataAsync<TInput>(ReadOnlyMemory<TInput> data, CancellationToken cancellationToken) where TInput : unmanaged;
+            public abstract ValueTask WriteDataRawAsync<TInput>(ReadOnlyMemory<byte> data, CancellationToken cancellationToken) where TInput : unmanaged;
         }
 
         private sealed class InternalBufferWriter<TOutput> : InternalBufferWriter
@@ -215,18 +246,18 @@ namespace TinyAudio
             public InternalBufferWriter(AudioPlayer player) => this.player = player;
 
             [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-            public override uint WriteData<TInput>(ReadOnlySpan<TInput> data)
+            public override int WriteData<TInput>(ReadOnlySpan<TInput> data)
             {
                 // if formats are the same no sample conversion is needed
                 if (typeof(TInput) == typeof(TOutput))
-                    return this.player.WriteDataInternal(MemoryMarshal.AsBytes(data));
+                    return this.player.WriteDataInternal(MemoryMarshal.AsBytes(data)) / Unsafe.SizeOf<TOutput>();
 
                 int minBufferSize = data.Length;
                 if (this.conversionBuffer == null || this.conversionBuffer.Length < minBufferSize)
                     Array.Resize(ref this.conversionBuffer, minBufferSize);
 
                 SampleConverter.InternalConvert<TInput, TOutput>(data, this.conversionBuffer);
-                return this.player.WriteDataInternal(MemoryMarshal.AsBytes(this.conversionBuffer.AsSpan(0, data.Length))) / (uint)Unsafe.SizeOf<TOutput>();
+                return this.player.WriteDataInternal(MemoryMarshal.AsBytes(this.conversionBuffer.AsSpan(0, data.Length))) / Unsafe.SizeOf<TOutput>();
             }
             [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public override ValueTask WriteDataAsync<TInput>(ReadOnlyMemory<TInput> data, CancellationToken cancellationToken)
@@ -242,6 +273,20 @@ namespace TinyAudio
                 SampleConverter.InternalConvert<TInput, TOutput>(data.Span, this.conversionBuffer);
                 return this.player.WriteDataInternalAsync<TOutput>(this.conversionBuffer.AsMemory(0, data.Length), cancellationToken);
             }
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            public override ValueTask WriteDataRawAsync<TInput>(ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
+            {
+                // if formats are the same no sample conversion is needed
+                if (typeof(TInput) == typeof(TOutput))
+                    return this.player.WriteDataRawInternalAsync<TInput>(data, cancellationToken);
+
+                int minBufferSize = data.Length / Unsafe.SizeOf<TInput>();
+                if (this.conversionBuffer == null || this.conversionBuffer.Length < minBufferSize)
+                    Array.Resize(ref this.conversionBuffer, minBufferSize);
+
+                SampleConverter.InternalConvert<TInput, TOutput>(MemoryMarshal.Cast<byte, TInput>(data.Span), this.conversionBuffer);
+                return this.player.WriteDataInternalAsync<TOutput>(this.conversionBuffer.AsMemory(0, minBufferSize), cancellationToken);
+            }
         }
 
         private abstract class CallbackRaiser
@@ -250,7 +295,7 @@ namespace TinyAudio
             {
             }
 
-            public abstract void RaiseCallback(Span<byte> buffer, out uint samplesWritten);
+            public abstract void RaiseCallback(Span<byte> buffer, out int samplesWritten);
         }
 
         private sealed class CallbackRaiser<TInput, TOutput> : CallbackRaiser
@@ -266,7 +311,7 @@ namespace TinyAudio
             }
 
             [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-            public override void RaiseCallback(Span<byte> buffer, out uint samplesWritten)
+            public override void RaiseCallback(Span<byte> buffer, out int samplesWritten)
             {
                 // if formats are the same no sample conversion is needed
                 if (typeof(TInput) == typeof(TOutput))
@@ -291,5 +336,5 @@ namespace TinyAudio
     /// </summary>
     /// <param name="buffer">Buffer to write to.</param>
     /// <param name="samplesWritten">Must be set to the number of samples written to the buffer.</param>
-    public delegate void BufferNeededCallback<TSample>(Span<TSample> buffer, out uint samplesWritten) where TSample : unmanaged;
+    public delegate void BufferNeededCallback<TSample>(Span<TSample> buffer, out int samplesWritten) where TSample : unmanaged;
 }

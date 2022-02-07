@@ -255,15 +255,15 @@ namespace TinyAudio.DirectSound
             this.Dispose(true);
             GC.SuppressFinalize(this);
         }
-        public void Unlock(IntPtr ptr1, uint length1, IntPtr ptr2, uint length2)
+        public void Unlock(IntPtr ptr1, int length1, IntPtr ptr2, int length2)
         {
             this.isEmpty = false;
 
-            this.writePos = (this.writePos + length1 + length2) % this.bufferSize;
+            this.writePos = (this.writePos + (uint)length1 + (uint)length2) % this.bufferSize;
 
             unsafe
             {
-                this.soundBuffer->Vtbl->Unlock(this.soundBuffer, ptr1.ToPointer(), length1, ptr2.ToPointer(), length2);
+                this.soundBuffer->Vtbl->Unlock(this.soundBuffer, ptr1.ToPointer(), (uint)length1, ptr2.ToPointer(), (uint)length2);
             }
         }
 
