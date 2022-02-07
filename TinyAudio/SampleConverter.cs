@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace TinyAudio
@@ -142,6 +143,21 @@ namespace TinyAudio
                 for (int i = 0; i < source.Length; i++)
                     target[i] = (short)(source[i] * 32767f);
             }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static void InternalConvert<TFrom, TTo>(ReadOnlySpan<TFrom> source, Span<TTo> target)
+            where TFrom : unmanaged
+            where TTo : unmanaged
+        {
+            if (typeof(TFrom) == typeof(short) && typeof(TTo) == typeof(float))
+                Pcm16ToFloat(MemoryMarshal.Cast<TFrom, short>(source), MemoryMarshal.Cast<TTo, float>(target));
+            else if (typeof(TFrom) == typeof(byte) && typeof(TTo) == typeof(short))
+                Pcm8ToPcm16(MemoryMarshal.Cast<TFrom, byte>(source), MemoryMarshal.Cast<TTo, short>(target));
+            else if (typeof(TFrom) == typeof(float) && typeof(TTo) == typeof(short))
+                FloatToPcm16(MemoryMarshal.Cast<TFrom, float>(source), MemoryMarshal.Cast<TTo, short>(target));
+            else
+                throw new NotImplementedException();
         }
     }
 }

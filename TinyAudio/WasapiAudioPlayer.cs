@@ -7,7 +7,7 @@ namespace TinyAudio
     public sealed class WasapiAudioPlayer : AudioPlayer
     {
         private readonly AudioClient audioClient;
-        private readonly ManualResetEvent bufferReady = new ManualResetEvent(false);
+        private readonly ManualResetEvent bufferReady = new(false);
         private RegisteredWaitHandle? callbackWaitHandle;
         private bool disposed;
 
@@ -61,7 +61,7 @@ namespace TinyAudio
                     if (release)
                     {
                         int len = Math.Min(data.Length, buffer.Length);
-                        data.Slice(0, len).CopyTo(buffer);
+                        data[..len].CopyTo(buffer);
                         written = (uint)len;
                     }
                 }
