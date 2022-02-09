@@ -8,7 +8,7 @@
 		<NoWarn>CS1591</NoWarn>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<Authors>Greg Divis</Authors>
-		<Version>0.3.0</Version>
+		<Version>0.3.1</Version>
 		<Description>Simple audio playback library</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/gregdivis/TinyAudio.git</RepositoryUrl>
