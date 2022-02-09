@@ -156,6 +156,8 @@ namespace TinyAudio
                 Pcm8ToPcm16(MemoryMarshal.Cast<TFrom, byte>(source), MemoryMarshal.Cast<TTo, short>(target));
             else if (typeof(TFrom) == typeof(float) && typeof(TTo) == typeof(short))
                 FloatToPcm16(MemoryMarshal.Cast<TFrom, float>(source), MemoryMarshal.Cast<TTo, short>(target));
+            else if (typeof(TFrom) == typeof(byte) && typeof(TTo) == typeof(float))
+                Pcm8ToFloat(MemoryMarshal.Cast<TFrom, byte>(source), MemoryMarshal.Cast<TTo, float>(target));
             else
                 throw new NotImplementedException();
         }
