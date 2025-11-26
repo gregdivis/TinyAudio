@@ -1,21 +1,20 @@
-﻿namespace TinyAudio
+﻿namespace TinyAudio;
+
+/// <summary>
+/// Used to specify the number of bits per sample in a sound buffer.
+/// </summary>
+public enum SampleFormat
 {
     /// <summary>
-    /// Used to specify the number of bits per sample in a sound buffer.
+    /// There are eight bits per sample.
     /// </summary>
-    public enum SampleFormat
-    {
-        /// <summary>
-        /// There are eight bits per sample.
-        /// </summary>
-        UnsignedPcm8,
-        /// <summary>
-        /// There are sixteen bits per sample.
-        /// </summary>
-        SignedPcm16,
-        /// <summary>
-        /// Samples are 32-bit IEEE floating point values.
-        /// </summary>
-        IeeeFloat32
-    }
+    UnsignedPcm8,
+    /// <summary>
+    /// There are sixteen bits per sample.
+    /// </summary>
+    SignedPcm16,
+    /// <summary>
+    /// Samples are 32-bit IEEE floating point values.
+    /// </summary>
+    IeeeFloat32
 }

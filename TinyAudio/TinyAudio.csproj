@@ -1,16 +1,25 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>net6.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
-		<LangVersion>preview</LangVersion>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-		<NoWarn>CS1591</NoWarn>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<Authors>Greg Divis</Authors>
-		<Version>0.3.1</Version>
+		<Version>0.4.0</Version>
 		<Description>Simple audio playback library</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageProjectUrl>https://github.com/gregdivis/TinyAudio</PackageProjectUrl>
 		<RepositoryUrl>https://github.com/gregdivis/TinyAudio.git</RepositoryUrl>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<IsAotCompatible>true</IsAotCompatible>
+		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
+	<ItemGroup>
+		<None Include="..\README.md" Link="README.md" Pack="true" PackagePath="/" />
+	</ItemGroup>
 </Project>

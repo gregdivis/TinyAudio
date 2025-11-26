@@ -1,26 +1,27 @@
-﻿using System;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
-namespace TinyAudio
+namespace TinyAudio;
+
+[SupportedOSPlatform("windows")]
+[StructLayout(LayoutKind.Sequential, Pack = 1)]
+internal struct WAVEFORMATEX
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    internal struct WAVEFORMATEX
-    {
-        public ushort wFormatTag;
-        public ushort nChannels;
-        public uint nSamplesPerSec;
-        public uint nAvgBytesPerSec;
-        public ushort nBlockAlign;
-        public ushort wBitsPerSample;
-        public ushort cbSize;
-    }
+    public ushort wFormatTag;
+    public ushort nChannels;
+    public uint nSamplesPerSec;
+    public uint nAvgBytesPerSec;
+    public ushort nBlockAlign;
+    public ushort wBitsPerSample;
+    public ushort cbSize;
+}
 
-    [StructLayout(LayoutKind.Sequential)]
-    internal struct WAVEFORMATEXTENSIBLE
-    {
-        public WAVEFORMATEX WaveFormatEx;
-        public ushort wValidBitsPerSample;
-        public uint dwChannelMask;
-        public Guid SubFormat;
-    }
+[SupportedOSPlatform("windows")]
+[StructLayout(LayoutKind.Sequential)]
+internal struct WAVEFORMATEXTENSIBLE
+{
+    public WAVEFORMATEX WaveFormatEx;
+    public ushort wValidBitsPerSample;
+    public uint dwChannelMask;
+    public Guid SubFormat;
 }

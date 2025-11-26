@@ -1,10 +1,11 @@
 ﻿using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
-namespace TinyAudio.Wasapi.Interop
+namespace TinyAudio.Wasapi.Interop;
+
+[SupportedOSPlatform("windows")]
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct AudioClientInst
 {
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe struct AudioClientInst
-    {
-        public AudioClientV* Vtbl;
-    }
+    public AudioClientV* Vtbl;
 }

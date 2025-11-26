@@ -1,170 +1,184 @@
-﻿using System;
-using System.Diagnostics;
-using System.Threading;
+﻿using System.Diagnostics;
+using System.Runtime.Versioning;
 using TinyAudio.DirectSound;
 using TinyAudio.DirectSound.Interop;
 
-namespace TinyAudio
+namespace TinyAudio;
+
+/// <summary>
+/// Background audio player implemented using Windows DirectSound.
+/// </summary>
+/// <remarks>
+/// DirectSound is deprecated and <see cref="WasapiAudioPlayer"/> should be preferred on Windows.
+/// </remarks>
+[SupportedOSPlatform("windows")]
+public sealed class DirectSoundAudioPlayer : AudioPlayer
 {
-    public sealed class DirectSoundAudioPlayer : AudioPlayer
+    private readonly DirectSoundBuffer directSoundBuffer;
+    private Timer? bufferTimer;
+    private readonly uint dataInterval;
+    private volatile bool handlingTimer;
+    private bool disposed;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DirectSoundAudioPlayer"/> class.
+    /// </summary>
+    /// <param name="format">Desired audio format.</param>
+    /// <param name="bufferLength">Playback buffer length.</param>
+    public DirectSoundAudioPlayer(AudioFormat format, TimeSpan bufferLength)
+        : base(format)
     {
-        private readonly DirectSoundBuffer directSoundBuffer;
-        private Timer? bufferTimer;
-        private readonly uint dataInterval;
-        private volatile bool handlingTimer;
-        private bool disposed;
-
-        public DirectSoundAudioPlayer(AudioFormat format, TimeSpan bufferLength)
-            : base(format)
+        IntPtr hwnd;
+        using (var p = Process.GetCurrentProcess())
         {
-            IntPtr hwnd;
-            using (var p = Process.GetCurrentProcess())
+            hwnd = p.MainWindowHandle;
+        }
+
+        if (hwnd == IntPtr.Zero)
+            hwnd = NativeMethods.GetConsoleWindow();
+
+        this.dataInterval = (uint)(bufferLength.TotalMilliseconds * 0.4);
+
+        var dsound = DirectSoundObject.GetInstance(hwnd);
+        this.directSoundBuffer = dsound.CreateBuffer(format, bufferLength);
+    }
+
+    /// <inheritdoc/>
+    protected override void Start(bool useCallback)
+    {
+        if (useCallback)
+        {
+            uint maxBytes = this.directSoundBuffer.GetFreeBytes();
+            if (maxBytes >= 32)
+                this.WriteBuffer(maxBytes);
+        }
+
+        this.directSoundBuffer.Play(PlaybackMode.LoopContinuously);
+
+        if (useCallback)
+            this.bufferTimer = new Timer(_ => this.PollingThread(), null, 0, this.dataInterval);
+    }
+    /// <inheritdoc/>
+    protected override void Stop()
+    {
+        this.directSoundBuffer.Stop();
+        this.bufferTimer?.Dispose();
+        this.bufferTimer = null;
+    }
+
+    /// <inheritdoc/>
+    protected override void Dispose(bool disposing)
+    {
+        if (!this.disposed)
+        {
+            if (disposing)
             {
-                hwnd = p.MainWindowHandle;
+                this.StopPlayback();
+                this.directSoundBuffer.Dispose();
             }
 
-            if (hwnd == IntPtr.Zero)
-                hwnd = NativeMethods.GetConsoleWindow();
-
-            this.dataInterval = (uint)(bufferLength.TotalMilliseconds * 0.4);
-
-            var dsound = DirectSoundObject.GetInstance(hwnd);
-            this.directSoundBuffer = dsound.CreateBuffer(format, bufferLength);
+            this.disposed = true;
         }
+    }
 
-        protected override void Start(bool useCallback)
+    private void PollingThread()
+    {
+        if (this.handlingTimer)
+            return;
+
+        this.handlingTimer = true;
+        try
         {
-            if (useCallback)
-            {
-                uint maxBytes = this.directSoundBuffer.GetFreeBytes();
-                if (maxBytes >= 32)
-                    this.WriteBuffer(maxBytes);
-            }
-
-            this.directSoundBuffer.Play(PlaybackMode.LoopContinuously);
-
-            if (useCallback)
-                this.bufferTimer = new Timer(_ => this.PollingThread(), null, 0, this.dataInterval);
+            uint maxBytes = this.directSoundBuffer.GetFreeBytes() & ~3u;
+            if (maxBytes >= 32)
+                this.WriteBuffer(maxBytes);
         }
-        protected override void Stop()
+        finally
         {
-            this.directSoundBuffer.Stop();
-            this.bufferTimer?.Dispose();
-            this.bufferTimer = null;
+            this.handlingTimer = false;
         }
+    }
 
-        protected override void Dispose(bool disposing)
+    private void WriteBuffer(uint maxBytes)
+    {
+        var buffer = this.directSoundBuffer.Acquire(maxBytes);
+        if (buffer.Valid)
         {
-            if (!this.disposed)
-            {
-                if (disposing)
-                {
-                    this.StopPlayback();
-                    this.directSoundBuffer.Dispose();
-                }
+            int ptr1Written = 0;
+            int ptr2Written = 0;
+            var format = this.Format.SampleFormat;
 
-                this.disposed = true;
-            }
-        }
-
-        private void PollingThread()
-        {
-            if (this.handlingTimer)
-                return;
-
-            this.handlingTimer = true;
             try
             {
-                uint maxBytes = this.directSoundBuffer.GetFreeBytes() & ~3u;
-                if (maxBytes >= 32)
-                    this.WriteBuffer(maxBytes);
+                if (format == SampleFormat.SignedPcm16)
+                {
+                    var s1 = buffer.GetSpan1<short>();
+                    this.RaiseCallback(s1, out ptr1Written);
+                    if (buffer.Split && ptr1Written == s1.Length)
+                        this.RaiseCallback(buffer.GetSpan2<short>(), out ptr2Written);
+                    ptr1Written *= 2;
+                    ptr2Written *= 2;
+                }
+                else if (format == SampleFormat.UnsignedPcm8)
+                {
+                    var s1 = buffer.GetSpan1<byte>();
+                    this.RaiseCallback(s1, out ptr1Written);
+                    if (buffer.Split && ptr1Written == s1.Length)
+                        this.RaiseCallback(buffer.GetSpan2<byte>(), out ptr2Written);
+                }
+                else if (format == SampleFormat.IeeeFloat32)
+                {
+                    var s1 = buffer.GetSpan1<float>();
+                    this.RaiseCallback(s1, out ptr1Written);
+                    if (buffer.Split && ptr1Written == s1.Length)
+                        this.RaiseCallback(buffer.GetSpan2<float>(), out ptr2Written);
+                    ptr1Written *= 4;
+                    ptr2Written *= 4;
+                }
+                else
+                {
+                    throw new InvalidOperationException("Sample format not supported.");
+                }
             }
             finally
             {
-                this.handlingTimer = false;
+                this.directSoundBuffer.Unlock(buffer.Ptr1, ptr1Written, buffer.Ptr2, ptr2Written);
             }
         }
+    }
 
-        private void WriteBuffer(uint maxBytes)
+    /// <inheritdoc/>
+    protected override int WriteDataInternal(ReadOnlySpan<byte> data)
+    {
+        var buffer = this.directSoundBuffer.Acquire(32);
+        if (buffer.Valid)
         {
-            var buffer = this.directSoundBuffer.Acquire(maxBytes);
-            if (buffer.Valid)
+            int ptr1Written = 0;
+            int ptr2Written = 0;
+            try
             {
-                int ptr1Written = 0;
-                int ptr2Written = 0;
-                var format = this.Format.SampleFormat;
+                var span1 = buffer.GetSpan1<byte>();
+                var src = data[..Math.Min(span1.Length, data.Length)];
+                src.CopyTo(span1);
+                ptr1Written = src.Length;
 
-                try
+                src = data[src.Length..];
+                if (!src.IsEmpty && buffer.Split)
                 {
-                    if (format == SampleFormat.SignedPcm16)
-                    {
-                        var s1 = buffer.GetSpan1<short>();
-                        this.RaiseCallback(s1, out ptr1Written);
-                        if (buffer.Split && ptr1Written == s1.Length)
-                            this.RaiseCallback(buffer.GetSpan2<short>(), out ptr2Written);
-                        ptr1Written *= 2;
-                        ptr2Written *= 2;
-                    }
-                    else if (format == SampleFormat.UnsignedPcm8)
-                    {
-                        var s1 = buffer.GetSpan1<byte>();
-                        this.RaiseCallback(s1, out ptr1Written);
-                        if (buffer.Split && ptr1Written == s1.Length)
-                            this.RaiseCallback(buffer.GetSpan2<byte>(), out ptr2Written);
-                    }
-                    else if (format == SampleFormat.IeeeFloat32)
-                    {
-                        var s1 = buffer.GetSpan1<float>();
-                        this.RaiseCallback(s1, out ptr1Written);
-                        if (buffer.Split && ptr1Written == s1.Length)
-                            this.RaiseCallback(buffer.GetSpan2<float>(), out ptr2Written);
-                        ptr1Written *= 4;
-                        ptr2Written *= 4;
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException("Sample format not supported.");
-                    }
-                }
-                finally
-                {
-                    this.directSoundBuffer.Unlock(buffer.Ptr1, ptr1Written, buffer.Ptr2, ptr2Written);
+                    var span2 = buffer.GetSpan2<byte>();
+                    var src2 = src[..Math.Min(src.Length, span2.Length)];
+                    src2.CopyTo(span2);
+                    ptr2Written = src2.Length;
                 }
             }
-        }
-
-        protected override int WriteDataInternal(ReadOnlySpan<byte> data)
-        {
-            var buffer = this.directSoundBuffer.Acquire(32);
-            if (buffer.Valid)
+            finally
             {
-                int ptr1Written = 0;
-                int ptr2Written = 0;
-                try
-                {
-                    var span1 = buffer.GetSpan1<byte>();
-                    var src = data[..Math.Min(span1.Length, data.Length)];
-                    src.CopyTo(span1);
-                    ptr1Written = src.Length;
-
-                    src = data[src.Length..];
-                    if (!src.IsEmpty && buffer.Split)
-                    {
-                        var span2 = buffer.GetSpan2<byte>();
-                        var src2 = src.Slice(0, Math.Min(src.Length, span2.Length));
-                        src2.CopyTo(span2);
-                        ptr2Written = src2.Length;
-                    }
-                }
-                finally
-                {
-                    this.directSoundBuffer.Unlock(buffer.Ptr1, ptr1Written, buffer.Ptr2, ptr2Written);
-                }
-
-                return ptr1Written + ptr2Written;
+                this.directSoundBuffer.Unlock(buffer.Ptr1, ptr1Written, buffer.Ptr2, ptr2Written);
             }
 
-            return 0;
+            return ptr1Written + ptr2Written;
         }
+
+        return 0;
     }
 }
