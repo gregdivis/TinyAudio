@@ -255,7 +255,7 @@ public abstract partial class AudioPlayer : IDisposable
     private async ValueTask WriteDataRawInternalAsync<T>(ReadOnlyMemory<byte> data, CancellationToken cancellationToken) where T : unmanaged
     {
         int bytesWritten = 0;
-        int byteLength = Unsafe.SizeOf<T>() * data.Length;
+        int byteLength = data.Length;
 
         while (true)
         {
