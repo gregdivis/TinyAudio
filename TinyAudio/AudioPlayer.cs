@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using PipeWireSharp;
 
 namespace TinyAudio;
 
@@ -50,6 +51,9 @@ public abstract partial class AudioPlayer : IDisposable
     {
         if (OperatingSystem.IsWindows())
             return WasapiAudioPlayer.Create(bufferLength, useCallback, format);
+
+        if (OperatingSystem.IsLinux() && PipeWire.IsAvailable)
+            return new PipeWireAudioPlayer(format ?? new AudioFormat(44100, 2, SampleFormat.SignedPcm16), bufferLength);
 
         return new OpenALAudioPlayer(format ?? new AudioFormat(44100, 2, SampleFormat.SignedPcm16));
     }
